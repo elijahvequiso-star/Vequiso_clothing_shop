@@ -1,9 +1,9 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import SearchBar from "@/app/components/SearchBar";
 import ProductCard from "@/app/components/ProductCard";
-import { allCategories, products } from "@/app/data/products";
+import { allCategories, products as fallbackProducts, Product } from "@/app/data/products";
 
 const sortOptions = [
   { value: "newest", label: "Newest" },
@@ -12,9 +12,22 @@ const sortOptions = [
 ] as const;
 
 export default function ShopPage() {
-  const [selectedCategory, setSelectedCategory] = useState<(typeof allCategories)[number]>("All");
+  const [products, setProducts] = useState<Product[]>(fallbackProducts);
+  const [selectedCategory, setSelectedCategory] = useState<string>("All");
   const [search, setSearch] = useState("");
   const [sort, setSort] = useState<(typeof sortOptions)[number]["value"]>("newest");
+
+  useEffect(() => {
+    fetch("/api/products", { cache: "no-store" })
+      .then(async (response) => {
+        if (!response.ok) return;
+        const result = await response.json() as { products?: Product[] };
+        if (result.products) setProducts(result.products);
+      })
+      .catch(() => undefined);
+  }, []);
+
+  const categories = useMemo(() => [...new Set([...allCategories.slice(1), ...products.map((product) => product.category)])], [products]);
 
   const filteredProducts = useMemo(() => {
     const normalized = search.trim().toLowerCase();
@@ -35,7 +48,7 @@ export default function ShopPage() {
       sorted.sort((a, b) => b.price - a.price);
     }
     return sorted;
-  }, [search, selectedCategory, sort]);
+  }, [products, search, selectedCategory, sort]);
 
   return (
     <main className="bg-[#f7edea] py-12 text-black">
@@ -52,7 +65,7 @@ export default function ShopPage() {
 
         <div className="mt-8 flex flex-col gap-4 border border-black/10 bg-white p-4 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex flex-wrap gap-2">
-            {allCategories.map((category) => (
+            {["All", ...categories].map((category) => (
               <button
                 key={category}
                 type="button"

@@ -1,9 +1,9 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import { getCartItems, getCurrentUser } from "@/app/data/store";
+import { getCartItems } from "@/app/data/store";
 
 const navItems = [
   { href: "/", label: "Home" },
@@ -39,6 +39,15 @@ function IconBag() {
   );
 }
 
+function IconLogout() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="h-4 w-4">
+      <path d="M10 17l5-5-5-5M15 12H3" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="M12 3h6a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-6" strokeLinecap="round" />
+    </svg>
+  );
+}
+
 function IconMenu() {
   return (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="h-5 w-5">
@@ -49,30 +58,57 @@ function IconMenu() {
 
 export default function Navbar() {
   const pathname = usePathname();
+  const router = useRouter();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [cartCount, setCartCount] = useState(0);
   const [userName, setUserName] = useState("");
+  const [logoutError, setLogoutError] = useState("");
+
+  const handleLogout = async () => {
+    setLogoutError("");
+    try {
+      const response = await fetch("/api/auth/logout", { method: "POST" });
+      if (!response.ok) {
+        setLogoutError("We couldn't log you out. Please try again.");
+        return;
+      }
+      setUserName("");
+      setCartCount(0);
+      setMobileOpen(false);
+      window.dispatchEvent(new Event("storage"));
+      router.push("/");
+    } catch {
+      setLogoutError("We couldn't log you out. Please try again.");
+    }
+  };
 
   useEffect(() => {
-    const sync = () => {
-      const cart = getCartItems();
-      setCartCount(cart.reduce((sum, item) => sum + item.quantity, 0));
-      const currentUser = getCurrentUser();
-      setUserName(currentUser?.fullName ?? "");
+    let active = true;
+    const sync = async () => {
+      try {
+        const response = await fetch("/api/auth/me", { cache: "no-store" });
+        if (!response.ok) throw new Error("Unable to verify session.");
+        const result = await response.json() as { user: { id: string; full_name: string; role: string } | null };
+        if (!active) return;
+        setUserName(result.user?.full_name ?? "");
+        const cart = result.user?.role === "customer" ? getCartItems(result.user.id) : [];
+        setCartCount(cart.reduce((sum, item) => sum + item.quantity, 0));
+      } catch {
+        if (!active) return;
+        setUserName("");
+        setCartCount(0);
+      }
     };
 
-    sync();
+    void sync();
     window.addEventListener("storage", sync);
     window.addEventListener("focus", sync);
 
     return () => {
+      active = false;
       window.removeEventListener("storage", sync);
       window.removeEventListener("focus", sync);
     };
-  }, []);
-
-  useEffect(() => {
-    setMobileOpen(false);
   }, [pathname]);
 
   return (
@@ -98,22 +134,47 @@ export default function Navbar() {
           <Link href="/shop" aria-label="Search products" className="transition-transform hover:scale-105">
             <IconSearch />
           </Link>
-          <Link
-            href={userName ? "/account" : "/login"}
-            aria-label="Account"
-            className="flex items-center gap-2 text-[10px] uppercase tracking-[0.2em]"
-          >
-            <IconUser />
-            <span>{userName ? "Account" : "Login"}</span>
-          </Link>
-          <Link href="/cart" aria-label="Shopping bag" className="relative transition-transform hover:scale-105">
-            <IconBag />
-            {cartCount > 0 && (
-              <span className="absolute -right-2 -top-2 flex h-4 min-w-4 items-center justify-center rounded-full bg-[#5d433a] px-1 text-[8px] font-medium text-white">
-                {cartCount}
-              </span>
-            )}
-          </Link>
+          {!userName && (
+            <Link
+              href="/login"
+              aria-label="Login"
+              className="flex items-center gap-2 text-[10px] uppercase tracking-[0.2em]"
+            >
+              <IconUser />
+              <span>Login</span>
+            </Link>
+          )}
+          {userName ? (
+            <details className="group relative">
+              <summary aria-label="Shopping bag and orders" className="relative flex cursor-pointer list-none items-center transition-transform hover:scale-105 [&::-webkit-details-marker]:hidden">
+                <IconBag />
+                {cartCount > 0 && (
+                  <span className="absolute -right-2 -top-2 flex h-4 min-w-4 items-center justify-center rounded-full bg-[#5d433a] px-1 text-[8px] font-medium text-white">
+                    {cartCount}
+                  </span>
+                )}
+              </summary>
+              <div className="absolute right-0 top-full z-50 mt-3 w-44 border border-black/10 bg-white p-2 text-[10px] uppercase tracking-[0.16em] shadow-lg">
+                <Link href="/cart" className="block px-3 py-3 hover:bg-[#f7edea]">View Cart</Link>
+                <Link href="/account/orders" className="block px-3 py-3 hover:bg-[#f7edea]">My Orders</Link>
+              </div>
+            </details>
+          ) : (
+            <Link href="/cart" aria-label="Shopping bag" className="relative transition-transform hover:scale-105">
+              <IconBag />
+              {cartCount > 0 && (
+                <span className="absolute -right-2 -top-2 flex h-4 min-w-4 items-center justify-center rounded-full bg-[#5d433a] px-1 text-[8px] font-medium text-white">
+                  {cartCount}
+                </span>
+              )}
+            </Link>
+          )}
+          {userName && (
+            <button type="button" onClick={handleLogout} className="inline-flex items-center gap-2 text-[10px] uppercase tracking-[0.2em] transition-colors hover:text-black/60 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-black">
+              <IconLogout />
+              <span>Log out</span>
+            </button>
+          )}
         </div>
 
         <button
@@ -130,27 +191,50 @@ export default function Navbar() {
         <div className="border-t border-black/10 bg-[#f7edea] px-4 py-4 md:hidden">
           <nav className="flex flex-col gap-4 text-[11px] uppercase tracking-[0.24em] text-black/75">
             {navItems.map((item) => (
-              <Link key={item.href} href={item.href} className={pathname === item.href ? "text-black" : ""}>
+              <Link key={item.href} href={item.href} onClick={() => setMobileOpen(false)} className={pathname === item.href ? "text-black" : ""}>
                 {item.label}
               </Link>
             ))}
             <div className="mt-2 flex items-center justify-between border-t border-black/10 pt-4">
-              <Link href="/shop" className="flex items-center gap-2">
+              <Link href="/shop" onClick={() => setMobileOpen(false)} className="flex items-center gap-2">
                 <IconSearch />
                 Search
               </Link>
-              <Link href={userName ? "/account" : "/login"} className="flex items-center gap-2">
-                <IconUser />
-                {userName ? "Profile" : "Login"}
-              </Link>
-              <Link href="/cart" className="flex items-center gap-2">
-                <IconBag />
-                Bag ({cartCount})
-              </Link>
+              {!userName && (
+                <Link href="/login" onClick={() => setMobileOpen(false)} className="flex items-center gap-2 text-[11px] uppercase tracking-[0.24em]">
+                  <IconUser />
+                  Login
+                </Link>
+              )}
+              {userName ? (
+                <details className="group relative">
+                  <summary aria-label="Shopping bag and orders" className="flex cursor-pointer list-none items-center gap-2 [&::-webkit-details-marker]:hidden">
+                    <IconBag />
+                    Bag ({cartCount})
+                  </summary>
+                  <div className="absolute right-0 top-full z-50 mt-3 w-40 border border-black/10 bg-white p-2 text-[10px] uppercase tracking-[0.16em] shadow-lg">
+                    <Link href="/cart" onClick={() => setMobileOpen(false)} className="block px-3 py-3 hover:bg-[#f7edea]">View Cart</Link>
+                    <Link href="/account/orders" onClick={() => setMobileOpen(false)} className="block px-3 py-3 hover:bg-[#f7edea]">My Orders</Link>
+                  </div>
+                </details>
+              ) : (
+                <Link href="/cart" onClick={() => setMobileOpen(false)} className="flex items-center gap-2">
+                  <IconBag />
+                  Bag ({cartCount})
+                </Link>
+              )}
             </div>
+            {userName && (
+              <button type="button" onClick={handleLogout} className="inline-flex items-center gap-2 border-t border-black/10 pt-4 text-[10px] uppercase tracking-[0.2em] transition-colors hover:text-black focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-black">
+                <IconLogout />
+                <span>Log out</span>
+              </button>
+            )}
+            {logoutError && <p role="alert" className="text-sm normal-case tracking-normal text-red-800">{logoutError}</p>}
           </nav>
         </div>
       )}
+      {logoutError && !mobileOpen && <p role="alert" className="px-4 pb-3 text-right text-xs text-red-800">{logoutError}</p>}
     </header>
   );
 }

@@ -3,18 +3,24 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import { getCurrentUser, getWishlistItems, logoutCurrentUser } from "@/app/data/store";
+import { getWishlistItems } from "@/app/data/store";
 import { products } from "@/app/data/products";
 
 export default function AccountPage() {
   const router = useRouter();
-  const [user, setUser] = useState(getCurrentUser());
+  const [user, setUser] = useState<{ full_name: string; email: string; phone?: string; role: string } | null>(null);
   const [wishlistIds, setWishlistIds] = useState<string[]>([]);
+  const [logoutError, setLogoutError] = useState("");
 
   useEffect(() => {
-    const sync = () => {
-      const nextUser = getCurrentUser();
-      setUser(nextUser);
+    const sync = async () => {
+      const response = await fetch("/api/auth/me", { cache: "no-store" });
+      const result = (await response.json()) as { user: typeof user };
+      if (result.user?.role === "admin") {
+        router.replace("/admin/dashboard");
+        return;
+      }
+      setUser(result.user);
       setWishlistIds(getWishlistItems());
     };
 
@@ -25,12 +31,22 @@ export default function AccountPage() {
       window.removeEventListener("storage", sync);
       window.removeEventListener("focus", sync);
     };
-  }, []);
+  }, [router]);
 
-  const handleLogout = () => {
-    logoutCurrentUser();
-    setUser(null);
-    router.push("/");
+  const handleLogout = async () => {
+    setLogoutError("");
+    try {
+      const response = await fetch("/api/auth/logout", { method: "POST" });
+      if (!response.ok) {
+        setLogoutError("We couldn't log you out. Please try again.");
+        return;
+      }
+      setUser(null);
+      window.dispatchEvent(new Event("storage"));
+      router.push("/");
+    } catch {
+      setLogoutError("We couldn't log you out. Please try again.");
+    }
   };
 
   if (!user) {
@@ -51,17 +67,18 @@ export default function AccountPage() {
   return (
     <main className="bg-[#f7edea] py-16 text-black">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-10">
-        <h1 className="text-5xl leading-none tracking-[-0.07em] sm:text-6xl">Welcome, {user.fullName}</h1>
+        <h1 className="text-5xl leading-none tracking-[-0.07em] sm:text-6xl">Welcome, {user.full_name}</h1>
 
         <div className="mt-10 grid gap-8 lg:grid-cols-[0.8fr_1.2fr]">
           <aside className="border border-black/10 bg-white p-6">
             <p className="text-[10px] uppercase tracking-[0.28em] text-black/60">Account</p>
             <nav className="mt-6 space-y-4 text-sm text-black/75">
               <p className="font-medium text-black">Profile</p>
-              <p>My Orders</p>
+              <Link href="/account/orders" className="block hover:underline">My Orders</Link>
               <p>Wishlist</p>
               <p>Account Settings</p>
               <button type="button" onClick={handleLogout} className="text-left text-black underline-offset-4 hover:underline">Logout</button>
+              {logoutError && <p role="alert" className="text-sm text-red-800">{logoutError}</p>}
             </nav>
           </aside>
 

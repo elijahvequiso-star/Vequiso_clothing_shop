@@ -29,9 +29,9 @@ export default function ContactPage() {
           <p className="text-[10px] uppercase tracking-[0.32em] text-black/60">Contact</p>
           <h1 className="mt-5 text-5xl leading-none tracking-[-0.07em] sm:text-6xl">GET IN TOUCH</h1>
           <div className="mt-8 space-y-4 text-base text-black/70">
-            <p>Email: hello@elijahshop.com</p>
+            <p>Email: elijahvequiso@.com</p>
             <p>Phone: +63 917 123 4567</p>
-            <p>Address: 12 M. H. del Pilar St., Makati, Philippines</p>
+            <p>Address: Gawi, Oslob, Philippines</p>
             <p>Business Hours: Mon–Sat, 10:00 AM–7:00 PM</p>
           </div>
         </div>

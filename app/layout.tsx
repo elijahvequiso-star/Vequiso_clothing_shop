@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 import { Cormorant_Garamond, Inter } from "next/font/google";
-import Navbar from "@/app/components/Navbar";
-import Footer from "@/app/components/Footer";
+import SiteChrome from "@/app/components/SiteChrome";
 import "./globals.css";
 
 const inter = Inter({
@@ -22,12 +21,11 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
-    <html lang="en" className={`${inter.variable} ${cormorant.variable} h-full antialiased`}>
+    <html lang="en" data-scroll-behavior="smooth" className={`${inter.variable} ${cormorant.variable} h-full antialiased`}>
       <body className="min-h-full bg-[#f7edea] text-black">
         <div className="min-h-screen">
-          <Navbar />
+          <SiteChrome />
           <div className="flex-1">{children}</div>
-          <Footer />
         </div>
       </body>
     </html>

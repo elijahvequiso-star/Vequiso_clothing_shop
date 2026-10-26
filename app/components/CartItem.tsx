@@ -1,26 +1,46 @@
 "use client";
 
 import Image from "next/image";
+import { useRouter } from "next/navigation";
 import { formatPrice } from "@/app/data/products";
 import { CartItem as CartItemType, removeCartItem, updateCartItemQuantity } from "@/app/data/store";
+import { getAuthenticatedCustomer, getLoginUrl } from "@/app/lib/client-auth";
 
 type CartItemProps = {
   item: CartItemType;
+  userId: string;
 };
 
-export default function CartItem({ item }: CartItemProps) {
-  const handleIncrement = () => {
-    updateCartItemQuantity(item.productId, item.size, item.color, 1);
+export default function CartItem({ item, userId }: CartItemProps) {
+  const router = useRouter();
+
+  const verifyOwner = async () => {
+    try {
+      const user = await getAuthenticatedCustomer();
+      if (user?.id === userId) return true;
+    } catch {
+      router.push(getLoginUrl("/cart", "view-cart"));
+      return false;
+    }
+    router.push(getLoginUrl("/cart", "view-cart"));
+    return false;
+  };
+
+  const handleIncrement = async () => {
+    if (!(await verifyOwner())) return;
+    updateCartItemQuantity(userId, item.productId, item.size, item.color, 1);
     window.dispatchEvent(new Event("storage"));
   };
 
-  const handleDecrement = () => {
-    updateCartItemQuantity(item.productId, item.size, item.color, -1);
+  const handleDecrement = async () => {
+    if (!(await verifyOwner())) return;
+    updateCartItemQuantity(userId, item.productId, item.size, item.color, -1);
     window.dispatchEvent(new Event("storage"));
   };
 
-  const handleRemove = () => {
-    removeCartItem(item.productId, item.size, item.color);
+  const handleRemove = async () => {
+    if (!(await verifyOwner())) return;
+    removeCartItem(userId, item.productId, item.size, item.color);
     window.dispatchEvent(new Event("storage"));
   };
 

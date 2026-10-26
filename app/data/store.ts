@@ -15,7 +15,7 @@ export type UserAccount = {
   password: string;
 };
 
-export const CART_KEY = "elijah-cart-v1";
+export const CART_KEY = "elijah-cart-v2";
 export const WISHLIST_KEY = "elijah-wishlist-v1";
 export const ACCOUNTS_KEY = "elijah-accounts-v1";
 export const CURRENT_USER_KEY = "elijah-current-user-v1";
@@ -44,12 +44,16 @@ function safeWrite<T>(key: string, value: T) {
   }
 }
 
-export function getCartItems(): CartItem[] {
-  return safeRead<CartItem[]>(CART_KEY, []);
+function getUserCartKey(userId: string) {
+  return `${CART_KEY}:${userId}`;
 }
 
-export function addCartItem(item: CartItem) {
-  const cart = getCartItems();
+export function getCartItems(userId: string): CartItem[] {
+  return safeRead<CartItem[]>(getUserCartKey(userId), []);
+}
+
+export function addCartItem(userId: string, item: CartItem) {
+  const cart = getCartItems(userId);
   const itemKey = `${item.productId}-${item.size}-${item.color}`;
   const existing = cart.find(
     (cartItem) =>
@@ -58,20 +62,21 @@ export function addCartItem(item: CartItem) {
 
   if (existing) {
     existing.quantity += item.quantity;
-    safeWrite(CART_KEY, cart);
+    safeWrite(getUserCartKey(userId), cart);
     return;
   }
 
-  safeWrite(CART_KEY, [...cart, item]);
+  safeWrite(getUserCartKey(userId), [...cart, item]);
 }
 
 export function updateCartItemQuantity(
+  userId: string,
   productId: string,
   size: string,
   color: string,
   delta: number,
 ) {
-  const cart = getCartItems();
+  const cart = getCartItems(userId);
   const match = cart.find(
     (item) =>
       item.productId === productId && item.size === size && item.color === color,
@@ -88,20 +93,20 @@ export function updateCartItemQuantity(
       )
     : cart;
 
-  safeWrite(CART_KEY, filtered);
+  safeWrite(getUserCartKey(userId), filtered);
 }
 
-export function removeCartItem(productId: string, size: string, color: string) {
-  const cart = getCartItems();
+export function removeCartItem(userId: string, productId: string, size: string, color: string) {
+  const cart = getCartItems(userId);
   const filtered = cart.filter(
     (item) =>
       !(item.productId === productId && item.size === size && item.color === color),
   );
-  safeWrite(CART_KEY, filtered);
+  safeWrite(getUserCartKey(userId), filtered);
 }
 
-export function clearCart() {
-  safeWrite(CART_KEY, []);
+export function clearCart(userId: string) {
+  safeWrite(getUserCartKey(userId), []);
 }
 
 export function getWishlistItems(): string[] {
@@ -114,6 +119,7 @@ export function toggleWishlist(productId: string) {
     ? wishlist.filter((item) => item !== productId)
     : [...wishlist, productId];
   safeWrite(WISHLIST_KEY, next);
+  if (typeof window !== "undefined") window.dispatchEvent(new Event("elijah-wishlist-change"));
   return next;
 }
 

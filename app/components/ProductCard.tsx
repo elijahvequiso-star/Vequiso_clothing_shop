@@ -2,28 +2,47 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
+import { useCallback, useSyncExternalStore } from "react";
 import { formatPrice, Product } from "@/app/data/products";
 import { addCartItem, getWishlistItems, toggleWishlist } from "@/app/data/store";
+import { getAuthenticatedCustomer, getLoginUrl } from "@/app/lib/client-auth";
 
 type ProductCardProps = {
   product: Product;
 };
 
 export default function ProductCard({ product }: ProductCardProps) {
-  const [isWishlisted, setIsWishlisted] = useState(false);
-
-  useEffect(() => {
-    setIsWishlisted(getWishlistItems().includes(product.id));
-  }, [product.id]);
+  const router = useRouter();
+  const subscribe = useCallback((callback: () => void) => {
+    window.addEventListener("storage", callback);
+    window.addEventListener("elijah-wishlist-change", callback);
+    return () => {
+      window.removeEventListener("storage", callback);
+      window.removeEventListener("elijah-wishlist-change", callback);
+    };
+  }, []);
+  const getSnapshot = useCallback(() => getWishlistItems().includes(product.id), [product.id]);
+  const isWishlisted = useSyncExternalStore(subscribe, getSnapshot, () => false);
 
   const handleWishlistToggle = () => {
-    const next = toggleWishlist(product.id);
-    setIsWishlisted(next.includes(product.id));
+    toggleWishlist(product.id);
   };
 
-  const handleAddToCart = () => {
-    addCartItem({
+  const handleAddToCart = async () => {
+    let user;
+    try {
+      user = await getAuthenticatedCustomer();
+    } catch {
+      router.push(getLoginUrl(`${window.location.pathname}${window.location.search}`, "cart"));
+      return;
+    }
+    if (!user) {
+      router.push(getLoginUrl(`${window.location.pathname}${window.location.search}`, "cart"));
+      return;
+    }
+
+    addCartItem(user.id, {
       productId: product.id,
       name: product.name,
       price: product.price,
@@ -50,9 +69,9 @@ export default function ProductCard({ product }: ProductCardProps) {
           </div>
         </Link>
 
-        {product.badge && (
+        {(product.discountPercent ? `${product.discountPercent}% off` : product.badge) && (
           <span className="absolute left-3 top-3 border border-black/10 bg-white/90 px-2 py-1 text-[9px] uppercase tracking-[0.22em] text-black/70">
-            {product.badge}
+            {product.discountPercent ? `${product.discountPercent}% off` : product.badge}
           </span>
         )}
 
@@ -71,7 +90,7 @@ export default function ProductCard({ product }: ProductCardProps) {
           <h3 className="text-lg font-medium tracking-[-0.04em] text-black">{product.name}</h3>
           <p className="mt-1 text-[10px] uppercase tracking-[0.24em] text-black/55">{product.category}</p>
         </div>
-        <p className="text-base font-medium text-black">{formatPrice(product.price)}</p>
+        <div className="text-right"><p className="text-base font-medium text-black">{formatPrice(product.price)}</p>{product.discountPercent ? <p className="mt-1 text-xs text-black/40 line-through">{formatPrice(product.regularPrice ?? product.price)}</p> : null}</div>
       </div>
 
       <div className="px-4 pb-4">
