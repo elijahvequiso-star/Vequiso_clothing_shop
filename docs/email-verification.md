@@ -63,7 +63,9 @@ npm run build
 
 ## Hosting
 
-Add the exact variables above to the hosting platform's server environment. Keep the service-role key and Gmail App Password server-only. Use separate Supabase projects and sender credentials for previews when possible. Apply all required migrations to the production database before deploying the updated application, then redeploy after changing environment values.
+Add the exact variables above to the hosting platform's server environment. On Vercel, add them under **Project Settings → Environment Variables** and select the environment used by the deployment (Production, Preview, or Development). `GMAIL_USER` must be the full Gmail address that created the App Password; use a Google App Password, not the account password. The code removes whitespace from the App Password and trims the sender address and SMTP host. Save the variables and create a new deployment; existing deployments do not pick up changed environment values.
+
+If signup reports `Gmail SMTP authentication failed`, check the Vercel deployment's environment scope and confirm `GMAIL_USER` and `GMAIL_APP_PASSWORD` belong together. In the Google Account, verify 2-Step Verification is enabled and create a fresh App Password if needed. App Passwords may be unavailable for managed or Advanced Protection accounts. Keep the service-role key and Gmail App Password server-only, and never share them in logs or support messages. Use separate Supabase projects and sender credentials for previews when possible. Apply all required migrations to the production database before deploying the updated application.
 
 ## Integration checklist
 

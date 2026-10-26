@@ -82,9 +82,9 @@ export function hashRegistrationToken(token: string) {
 }
 
 export async function sendOtpEmail(email: string, otp: string) {
-  const user = process.env.GMAIL_USER;
+  const user = process.env.GMAIL_USER?.trim();
   const appPassword = process.env.GMAIL_APP_PASSWORD?.replace(/\s/g, "");
-  const host = process.env.SMTP_HOST;
+  const host = process.env.SMTP_HOST?.trim();
   const port = Number(process.env.SMTP_PORT);
 
   const configuration = validateSmtpEnvironment();
